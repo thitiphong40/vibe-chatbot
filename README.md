@@ -29,7 +29,7 @@ OPENAI_API_KEY=your_api_key_here
 
 Start the chatbot server:
 ```bash
-python main.py
+uvicorn main:app --port 8000
 ```
 
 The chatbot will be available at `http://localhost:8000` 
