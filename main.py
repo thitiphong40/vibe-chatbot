@@ -29,7 +29,6 @@ async def read_root(request: Request):
 
 @app.post("/chat")
 async def chat(query: Query):
-    print("input",query)
     try:
         response = chatbot.get_response(query.text)
         return {"response": response}

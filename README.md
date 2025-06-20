@@ -14,8 +14,11 @@ This chatbot combines three approaches:
 - Conversation memory
 - Real-time chat updates
 - Error handling and status messages
+- Docker support for easy deployment
 
 ## Setup
+
+### Local Setup
 
 1. Create a virtual environment:
 ```bash
@@ -35,7 +38,23 @@ OPENAI_API_KEY=your_api_key_here
 
 4. Place your PDF documents in the `documents` folder
 
+### Docker Setup
+
+1. Make sure Docker and Docker Compose are installed on your system
+
+2. Create a `.env` file with your OpenAI API key:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+
+3. Build and run the container:
+```bash
+docker-compose up --build
+```
+
 ## Running the Chatbot
+
+### Local Run
 
 1. Generate a sample PDF (optional):
 ```bash
@@ -50,6 +69,23 @@ python main.py
 3. Open your web browser and navigate to:
 ```
 http://127.0.0.1:8000
+```
+
+### Docker Run
+
+1. Generate a sample PDF (optional):
+```bash
+python generate_pdf.py
+```
+
+2. Start the container:
+```bash
+docker-compose up
+```
+
+3. Open your web browser and navigate to:
+```
+http://localhost:8000
 ```
 
 ## Web Interface
@@ -77,7 +113,7 @@ The web interface provides:
 
 1. Port 8000 is already in use:
    - Close other applications using port 8000
-   - Or modify the port in `main.py`
+   - Or modify the port in docker-compose.yml
 
 2. Document Processing Issues:
    - Ensure PDF files are in the `documents` directory
@@ -89,6 +125,12 @@ The web interface provides:
    - Check your internet connection
    - Ensure you have sufficient API credits
 
+4. Docker Issues:
+   - Ensure Docker daemon is running
+   - Check container logs: `docker-compose logs`
+   - Verify volume mounts are working
+   - Check container status: `docker-compose ps`
+
 ## Project Structure
 
 ```
@@ -98,6 +140,8 @@ The web interface provides:
 ├── rule_based.py        # Rule-based response handling
 ├── generate_pdf.py      # PDF generation utility
 ├── requirements.txt     # Project dependencies
+├── Dockerfile          # Docker configuration
+├── docker-compose.yml  # Docker Compose configuration
 ├── .env                # Environment variables
 ├── documents/          # PDF document storage
 │   └── alphabet_numbers.pdf
@@ -114,6 +158,35 @@ The web interface provides:
 - ChromaDB: Vector storage
 - Jinja2: Template rendering
 - Uvicorn: ASGI server
+- Docker: Containerization
+
+## Customizing System Prompt
+
+You can customize the chatbot's behavior by adding a system prompt, which is especially useful if your documents are related to education or you want the assistant to have a specific tone.
+
+To add a system prompt, update the `process_documents` method in `chatbot.py` as follows:
+
+```python
+from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+system_prompt = "คุณคือผู้ช่วยตอบคำถามเกี่ยวกับเอกสารการเรียน กรุณาตอบอย่างสุภาพและเน้นข้อมูลจากเอกสารที่มี"
+prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template(system_prompt),
+    HumanMessagePromptTemplate.from_template("ข้อมูลจากเอกสาร:\n{context}\n\nคำถาม: {question}")
+])
+
+self.qa_chain = ConversationalRetrievalChain.from_llm(
+    llm=self.llm,
+    retriever=self.retriever,
+    memory=self.memory,
+    combine_docs_chain_kwargs={"prompt": prompt}
+)
+```
+
+**Important:**
+- The prompt must include both `{context}` and `{question}` variables.
+- Adjust the `system_prompt` string as needed for your use case.
+- Make sure you have the necessary imports from `langchain.prompts`.
 
 ## Contributing
 

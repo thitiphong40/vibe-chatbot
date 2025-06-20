@@ -5,6 +5,7 @@ from document_processor import DocumentProcessor
 from rule_based import RuleBasedHandler
 import os
 from dotenv import load_dotenv
+from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 
 load_dotenv()
 
@@ -12,7 +13,7 @@ class HybridChatbot:
     def __init__(self):
         # Initialize OpenAI client with correct parameters
         self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
+            model_name="gpt-4o-mini",
             temperature=0.7,
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
@@ -35,10 +36,18 @@ class HybridChatbot:
         
         # Initialize QA chain after processing documents
         self.retriever = self.vectorstore.as_retriever(search_kwargs={"k": 3})
+        # self.retriever = self.vectorstore.as_retriever(search_kwargs={"k": 1})
+        system_prompt = "คุณคือผู้ช่วยตอบคำถามเกี่ยวกับเอกสารการเรียน กรุณาตอบอย่างสุภาพและเน้นข้อมูลจากเอกสารที่มี"
+        prompt = ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(system_prompt),
+            HumanMessagePromptTemplate.from_template("Context:\n{context}\n\nQuestion: {question}")
+        ])
+
         self.qa_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=self.retriever,
             memory=self.memory,
+            combine_docs_chain_kwargs={"prompt": prompt}
         )
         print("QA chain initialized with processed documents")
         return self.vectorstore

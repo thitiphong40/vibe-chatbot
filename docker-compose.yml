@@ -1,0 +1,11 @@
+services:
+  chatbot:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped 
