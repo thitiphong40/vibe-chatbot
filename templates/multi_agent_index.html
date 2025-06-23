@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent PDF Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .agent-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-right: 20px;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+        .chat-section {
+            flex: 1;
+        }
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #fafafa;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f5f5f5;
+            margin-right: auto;
+        }
+        .agent-message {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+        .system-message {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            font-style: italic;
+            color: #2e7d32;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1976d2;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .agent-list {
+            margin-bottom: 20px;
+        }
+        .agent-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background-color: white;
+        }
+        .agent-item:hover {
+            background-color: #f0f0f0;
+        }
+        .agent-item.active {
+            background-color: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .agent-item.initialized {
+            border-left: 4px solid #4caf50;
+        }
+        .agent-item.not-initialized {
+            border-left: 4px solid #ff9800;
+        }
+        .agent-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .agent-status {
+            font-size: 12px;
+            color: #666;
+        }
+        .control-buttons {
+            margin-bottom: 15px;
+        }
+        .control-buttons button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .selected-agent {
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Multi-Agent PDF Chatbot</h1>
+            <div id="status" class="status"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="agent-panel">
+                <h3>Available Agents</h3>
+                <div class="control-buttons">
+                    <button onclick="createAgents()">Create Agents</button>
+                    <button onclick="processAllDocuments()">Process All Documents</button>
+                </div>
+                <div id="selectedAgent" class="selected-agent" style="display: none;">
+                    <strong>Selected Agent:</strong> <span id="selectedAgentName"></span>
+                </div>
+                <div id="agentList" class="agent-list">
+                    <p>No agents available. Click "Create Agents" to start.</p>
+                </div>
+            </div>
+            
+            <div class="chat-section">
+                <h3>Chat</h3>
+                <div class="chat-container" id="chatContainer"></div>
+                <div class="input-container">
+                    <input type="text" id="userInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedAgent = null;
+        let previousSelectedAgent = null;
+        let agents = {};
+
+        function addMessage(message, isUser, agentName = null) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            
+            if (agentName === 'System') {
+                messageDiv.className = 'message system-message';
+                messageDiv.textContent = message;
+            } else {
+                messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+                
+                if (agentName && !isUser) {
+                    messageDiv.className += ' agent-message';
+                    messageDiv.innerHTML = `<strong>${agentName}:</strong> ${message}`;
+                } else {
+                    messageDiv.textContent = message;
+                }
+            }
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showStatus(message, isError) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${isError ? 'error' : 'success'}`;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        async function createAgents() {
+            try {
+                showStatus('Creating agents...', false);
+                const response = await fetch('/create-agents', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                agents = data.agents;
+                updateAgentList();
+                showStatus(data.message, false);
+            } catch (error) {
+                showStatus('Error creating agents: ' + error.message, true);
+            }
+        }
+
+        async function processAllDocuments() {
+            try {
+                showStatus('Processing all documents...', false);
+                const response = await fetch('/process-documents', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                agents = data.agents;
+                updateAgentList();
+                showStatus(data.message, false);
+            } catch (error) {
+                showStatus('Error processing documents: ' + error.message, true);
+            }
+        }
+
+        async function processAgentDocument(agentName) {
+            try {
+                showStatus(`Processing document for ${agentName}...`, false);
+                const response = await fetch(`/process-agent/${encodeURIComponent(agentName)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                agents[agentName] = data.agent;
+                updateAgentList();
+                showStatus(data.message, false);
+            } catch (error) {
+                showStatus('Error processing agent document: ' + error.message, true);
+            }
+        }
+
+        function updateAgentList() {
+            const agentList = document.getElementById('agentList');
+            const selectedAgentDiv = document.getElementById('selectedAgent');
+            const selectedAgentNameSpan = document.getElementById('selectedAgentName');
+            
+            if (Object.keys(agents).length === 0) {
+                agentList.innerHTML = '<p>No agents available. Click "Create Agents" to start.</p>';
+                selectedAgentDiv.style.display = 'none';
+                return;
+            }
+            
+            agentList.innerHTML = '';
+            Object.entries(agents).forEach(([name, info]) => {
+                const agentItem = document.createElement('div');
+                agentItem.className = `agent-item ${info.is_initialized ? 'initialized' : 'not-initialized'}`;
+                if (selectedAgent === name) {
+                    agentItem.className += ' active';
+                }
+                
+                const statusText = info.is_initialized ? 
+                    (info.has_vectorstore ? 'Ready (from cache)' : 'Ready') : 
+                    'Not initialized';
+                
+                agentItem.innerHTML = `
+                    <div class="agent-name">${name}</div>
+                    <div class="agent-status">
+                        Status: ${statusText}
+                    </div>
+                `;
+                
+                agentItem.onclick = () => selectAgent(name);
+                agentList.appendChild(agentItem);
+            });
+            
+            if (selectedAgent) {
+                selectedAgentDiv.style.display = 'block';
+                selectedAgentNameSpan.textContent = selectedAgent;
+            } else {
+                selectedAgentDiv.style.display = 'none';
+            }
+        }
+
+        function selectAgent(agentName) {
+            // Only show message if agent selection actually changed
+            if (selectedAgent !== agentName) {
+                selectedAgent = agentName;
+                updateAgentList();
+                
+                // Only offer to process if agent is not initialized
+                if (agents[agentName] && !agents[agentName].is_initialized) {
+                    if (confirm(`Agent "${agentName}" is not initialized. Would you like to process its document now?`)) {
+                        processAgentDocument(agentName);
+                    }
+                } else if (agents[agentName] && agents[agentName].is_initialized) {
+                    addMessage(`Selected agent: ${agentName}`, false, 'System');
+                }
+            }
+        }
+
+        async function sendMessage() {
+            const userInput = document.getElementById('userInput');
+            const message = userInput.value.trim();
+            
+            if (message) {
+                addMessage(message, true);
+                userInput.value = '';
+
+                try {
+                    let response;
+                    if (selectedAgent) {
+                        // Send to specific agent
+                        response = await fetch(`/chat/${encodeURIComponent(selectedAgent)}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ text: message })
+                        });
+                        const data = await response.json();
+                        addMessage(data.response, false, selectedAgent);
+                    } else {
+                        // Send to general chat (will try to route)
+                        response = await fetch('/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ text: message })
+                        });
+                        const data = await response.json();
+                        addMessage(data.response, false);
+                    }
+                } catch (error) {
+                    addMessage('Error: ' + error.message, false);
+                }
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Initialize on page load
+        window.onload = async function() {
+            try {
+                const response = await fetch('/agents');
+                const data = await response.json();
+                agents = data.agents;
+                updateAgentList();
+            } catch (error) {
+                console.log('No existing agents found');
+            }
+        };
+    </script>
+</body>
+</html> 
